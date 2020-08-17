@@ -7,8 +7,8 @@
 [ ! -z ${LENGTHS_PREF+x} ] || ( echo "Env var LENGTHS_PREF for the lengths file prefix." && exit 1 )
 
 LENGTHS_FILE=${LENGTHS_PREF}.Rdata
-RESULTS_PREF=${RESULTS_PREF}-${GENES_OR_TRANSCRIPTS}
 RESULTS=results/$RESULTS_PREF
+RESULTS_PREF=${RESULTS_PREF}-${GENES_OR_TRANSCRIPTS}
 mkdir -p $RESULTS
 
 
@@ -17,7 +17,7 @@ mkdir -p $RESULTS
 # Filter data based on selection in SDRF
 
 
-. ~/miniconda3/bin/activate ~/miniconda3/envs/quantile_and_transform 
+. ~/miniconda3/bin/activate ~/miniconda3/envs/ma_quantile_transform 
 QUANT_RES=$RESULTS/${RESULTS_PREF}-quantile-counts.tsv
 # Run quantile normalisation
 bash quantile_normalize.sh -c $CONFIGURATION_FILE \
@@ -34,7 +34,7 @@ Rscript transform2R.r --countstsv $QUANT_RES --sdrf $SDRF_FILE \
 	--output $RDATA_FOR_BC
 
 . ~/miniconda3/bin/deactivate
-. ~/miniconda3/bin/activate ~/miniconda3/envs/batch_correct_combat
+. ~/miniconda3/bin/activate ~/miniconda3/envs/ma_batch_correct_combat
 BC_OUTPUT=$RESULTS/${RESULTS_PREF}-corrected
 BC_OUTPUT_R=${BC_OUTPUT}_summarizedExp.rdata
 BC_OUTPUT_COUNTS=${BC_OUTPUT}_counts.tsv
@@ -43,7 +43,7 @@ Rscript batch_correction_v2.R -i $RDATA_FOR_BC --output $BC_OUTPUT_R --tsv_corre
 
 # conda create -n irap-components -c ebi-gene-expression-group irap-components
 . ~/miniconda3/bin/deactivate
-. ~/miniconda3/bin/activate ~/miniconda3/envs/irap-components
+. ~/miniconda3/bin/activate ~/miniconda3/envs/ma_irap_components
 
 RPKM_RES_PREFIX=${RESULTS}/${RESULTS_PREF}-corrected-fpkms
 RPKM_RES=${RPKM_RES_PREFIX}
