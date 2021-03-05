@@ -2,7 +2,6 @@
 set -euo pipefail
 
 scriptDir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
-projectRoot=${scriptDir}
 
 path_to_experiment_config=""
 path_to_source=""
@@ -14,20 +13,20 @@ usage(){
 }
 
 while getopts ":c:s:d:" opt; do
-  case $opt in
-    c)
-      path_to_experiment_config=$OPTARG;
-      ;;
-    s)
-      path_to_source=$OPTARG;
-      ;;
-	d)
-	  path_to_destination=$OPTARG;
-	  ;;
-    ?)
-      usage "Unknown option: $OPTARG"
-      ;;
-  esac
+	case $opt in
+		c)
+		path_to_experiment_config=$OPTARG;
+		;;
+		s)
+		path_to_source=$OPTARG;
+		;;
+		d)
+		path_to_destination=$OPTARG;
+		;;
+		?)
+		usage "Unknown option: $OPTARG"
+		;;
+	esac
 done
 
 [ -f "$path_to_experiment_config" ] || usage "experiment configuration file not found: $path_to_experiment_config"
@@ -40,7 +39,7 @@ trap 'rm -f ${tmp_files}.*' INT TERM EXIT
 
 tmp_config_tsv=$tmp_files.config.tsv
 # Produce a file that is <assay_group>\t<assay> with xpath
-"$projectRoot/get_assays_per_group.sh" "$path_to_experiment_config" > "$tmp_config_tsv"
+get_assays_per_group.sh "$path_to_experiment_config" > "$tmp_config_tsv"
 
 columns_with_right_assays=$(join -1 2 -o 1.1 -2 1 <(head -n1 "$path_to_source" | tr $'\t' $'\n' | cat -n | sort -k2) <(cut -f 3 "$tmp_config_tsv" | sort -u) | tr $'\n' ',' | sed 's/,$//')
 
@@ -56,11 +55,11 @@ tmp_config_format_for_r=$tmp_files.config.tsv.manipulated
 echo -e "AssayGroupID\tColumnHeading" > "$tmp_config_format_for_r"
 cut -f 1,3 "$tmp_config_tsv" >> "$tmp_config_format_for_r"
 
-"$projectRoot/irap/gxa_quantileNormalization.R" "$tmp_trimmed_source_tsv" "$tmp_config_format_for_r" "$tmp_out"
+gxa_quantileNormalization.R "$tmp_trimmed_source_tsv" "$tmp_config_format_for_r" "$tmp_out"
 
 numRowsBeforeQuantileNormalization=$(wc -l < "$tmp_trimmed_source_tsv" )
 numRowsAfterQuantileNormalization=$(wc -l < "$tmp_out" )
 [ "$numRowsBeforeQuantileNormalization" -eq "$numRowsAfterQuantileNormalization" ] \
-	|| usage "ERROR: attempted quantile normalization on file with $numRowsBeforeQuantileNormalization rows, got output with $numRowsAfterQuantileNormalization rows"
+|| usage "ERROR: attempted quantile normalization on file with $numRowsBeforeQuantileNormalization rows, got output with $numRowsAfterQuantileNormalization rows"
 
 mv "$tmp_out" "$path_to_destination"

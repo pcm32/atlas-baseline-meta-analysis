@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 # uses xpath (can be installed conda install perl-xml-xpath)
+# used in the quantile normalise process.
 
 INPUT_MEM=$(cat $1)
 for group in $(echo $INPUT_MEM | xpath -e '//assay_group/@id' | sed 's/ id="\(.*\)"/\1/'); do

@@ -17,7 +17,7 @@ mkdir -p $RESULTS
 # Filter data based on selection in SDRF
 
 
-. ~/miniconda3/bin/activate ~/miniconda3/envs/ma_quantile_transform 
+. ~/miniconda3/bin/activate ~/miniconda3/envs/ma_quantile_transform
 QUANT_RES=$RESULTS/${RESULTS_PREF}-quantile-counts.tsv
 # Run quantile normalisation
 bash quantile_normalize.sh -c $CONFIGURATION_FILE \
@@ -27,7 +27,8 @@ bash quantile_normalize.sh -c $CONFIGURATION_FILE \
 
 RDATA_FOR_BC=$RESULTS/${RESULTS_PREF}_summarizedExp.rdata
 # Transform to R object for Guilhemes
-Rscript transform2R.r --countstsv $QUANT_RES --sdrf $SDRF_FILE \
+# requires r-atlas-internal, currently part of the ma_quantile_transform env.
+Rscript bin/transform2R.r --countstsv $QUANT_RES --sdrf $SDRF_FILE \
 	--configuration $CONFIGURATION_FILE \
 	--methods $METHODS_FILE \
 	--batch 'study' \
@@ -39,14 +40,14 @@ BC_OUTPUT=$RESULTS/${RESULTS_PREF}-corrected
 BC_OUTPUT_R=${BC_OUTPUT}_summarizedExp.rdata
 BC_OUTPUT_COUNTS=${BC_OUTPUT}_counts.tsv
 # Run batch correction
-Rscript batch_correction_v2.R -i $RDATA_FOR_BC --output $BC_OUTPUT_R --tsv_corrected_counts $BC_OUTPUT_COUNTS
+Rscript bin/batch_correction_v2.R -i $RDATA_FOR_BC --output $BC_OUTPUT_R --tsv_corrected_counts $BC_OUTPUT_COUNTS
 
 # conda create -n irap-components -c ebi-gene-expression-group irap-components
 . ~/miniconda3/bin/deactivate
 . ~/miniconda3/bin/activate ~/miniconda3/envs/ma_irap_components
 
 RPKM_RES_PREFIX=${RESULTS}/${RESULTS_PREF}-corrected-fpkms
-RPKM_RES=${RPKM_RES_PREFIX}
+RPKM_RES=${RPKM_RES_PREFIX}.tsv
 TPM_RES_PREFIX=${RESULTS}/${RESULTS_PREF}-corrected-tpms
 TPM_RES=${TPM_RES_PREFIX}.tsv
 
@@ -56,7 +57,13 @@ else
   feature="transcript"
 fi
 
-irap_raw2metric -i $BC_OUTPUT_COUNTS --lengths $LENGTHS_FILE --feature $feature --metric rpkm --out ${RPKM_RES_PREFIX}
-irap_raw2metric -i $BC_OUTPUT_COUNTS --lengths $LENGTHS_FILE --feature $feature --metric tpm --out ${TPM_RES_PREFIX}
+irap_raw2metric -i $BC_OUTPUT_COUNTS --lengths $LENGTHS_FILE --feature $feature --metric rpkm --out ${RPKM_RES}
+irap_raw2metric -i $BC_OUTPUT_COUNTS --lengths $LENGTHS_FILE --feature $feature --metric tpm --out ${TPM_RES}
 
+inputs=${RESULTS}/inputs
+mkdir -p ${inputs}
+cp $CONFIGURATION_FILE $inputs/
 
+if [ "$GENES_OR_TRANSCRIPTS" = "transcripts" ]; then
+  cp $RAW_COUNTS_FILE $inputs/
+fi

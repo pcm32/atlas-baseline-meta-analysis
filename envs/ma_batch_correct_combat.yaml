@@ -1,0 +1,9 @@
+channels:
+ - bioconda
+ - conda-forge
+dependencies:
+ - r-optparse
+ - bioconductor-sva
+ - r-purrr
+ - r-magrittr
+ - bioconductor-summarizedexperiment
