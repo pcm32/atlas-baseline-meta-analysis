@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 suppressPackageStartupMessages(require(optparse))
 suppressPackageStartupMessages(require(XML))
 
@@ -75,7 +77,7 @@ remove_genes_with_expression_on_single_batch<-function(experiment) {
   #rowSums(experimentSummary@assays$data[[1]]) == 0 -> zeroRows
   #print(paste0("Removing ", length(which(zeroRows)), " genes with zero expression on all samples."))
   #experimentSummary<-experimentSummary[!zeroRows, ]
-  
+
   # ma holds on each column the sum of within samples of a batch
   # ma-row > 0 will give a boolean vector with trues when >0
   # sum(ma-row > 0, na.rm = TRUE) will count how many trues we have.
@@ -110,9 +112,3 @@ if( opt$remove_single_batch_genes ) {
 
 # Save the object to a file.
 save( experimentSummary, file = opt$output )
-
-
-
-
-
-

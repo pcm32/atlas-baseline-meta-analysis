@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 scriptDir=$(cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
@@ -39,7 +39,7 @@ trap 'rm -f ${tmp_files}.*' INT TERM EXIT
 
 tmp_config_tsv=$tmp_files.config.tsv
 # Produce a file that is <assay_group>\t<assay> with xpath
-get_assays_per_group.sh "$path_to_experiment_config" > "$tmp_config_tsv"
+$scriptDir/get_assays_per_group.sh "$path_to_experiment_config" > "$tmp_config_tsv"
 
 columns_with_right_assays=$(join -1 2 -o 1.1 -2 1 <(head -n1 "$path_to_source" | tr $'\t' $'\n' | cat -n | sort -k2) <(cut -f 3 "$tmp_config_tsv" | sort -u) | tr $'\n' ',' | sed 's/,$//')
 
@@ -55,7 +55,7 @@ tmp_config_format_for_r=$tmp_files.config.tsv.manipulated
 echo -e "AssayGroupID\tColumnHeading" > "$tmp_config_format_for_r"
 cut -f 1,3 "$tmp_config_tsv" >> "$tmp_config_format_for_r"
 
-gxa_quantileNormalization.R "$tmp_trimmed_source_tsv" "$tmp_config_format_for_r" "$tmp_out"
+$scriptDir/gxa_quantileNormalization.R "$tmp_trimmed_source_tsv" "$tmp_config_format_for_r" "$tmp_out"
 
 numRowsBeforeQuantileNormalization=$(wc -l < "$tmp_trimmed_source_tsv" )
 numRowsAfterQuantileNormalization=$(wc -l < "$tmp_out" )

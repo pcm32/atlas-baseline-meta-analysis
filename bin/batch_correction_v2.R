@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 suppressPackageStartupMessages(require(optparse))
 
 option_list = list(
@@ -25,13 +27,13 @@ option_list = list(
 )
 
 #batch effect correction packages
-library(sva) #for ComBat
-library(SummarizedExperiment)
+suppressPackageStartupMessages(require(sva)) #for ComBat
+suppressPackageStartupMessages(require(SummarizedExperiment))
 #library(RUVSeq) #for RUVs
 #library(batchelor) #for mnnCorrect
-library(magrittr)
+suppressPackageStartupMessages(require(magrittr))
 #library(stringr)
-library(purrr)
+suppressPackageStartupMessages(require(purrr))
 
 opt <- parse_args(OptionParser(option_list=option_list))
 
@@ -45,7 +47,7 @@ correct_batch_effect<-function(experiment, model, method=c('ComBat','RUV','MNN')
     assays$corrected_counts <- ComBat_seq(experiment@assays$data[[1]], experiment$batch, covar_mod=model.matrix(model, data=model.data))
   } else if(method == "RUV") {
     print("Running RUV...")
-    assays$corrected_counts <- RUVs(experiment@assays$data[[1]], cIdx=seq_len(nrow(experiment@assays$data[[1]])), k=k, 
+    assays$corrected_counts <- RUVs(experiment@assays$data[[1]], cIdx=seq_len(nrow(experiment@assays$data[[1]])), k=k,
                                     scIdx=model.data %>% expand.grid %>% apply(1,paste) %>% makeGroups, isLog=log)$normalizedCounts
   } else if(method == "MNN") {
     print("Running MNN...")

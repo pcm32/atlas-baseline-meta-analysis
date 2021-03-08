@@ -3,8 +3,8 @@ channels:
  - bioconda
  - conda-forge
 dependencies:
- - perl-xml-xpath=1.4.4
- - r-optparse=1.6.1
- - bioconductor-limma=3.40.0
- - r-atlas-internal=1.7
- - r-ggplot2=2.1.0
+ - perl-xml-xpath =1.44
+ - r-optparse =1.6.6
+ - bioconductor-limma =3.40.0
+ - r-atlas-internal =1.7
+ - r-ggplot2 =3.3.0
