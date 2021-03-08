@@ -2,14 +2,23 @@ rule all:
     input:
         #summarized_rdata="tmp_results/{accession}-{genes_or_transcripts}s-corrected_summarizedExp.rdata",
         #tsv_corrected_counts="tmp_results/{accession}-{genes_or_transcripts}s-corrected_counts.tsv"
-        other="tmp_results/{accession}-{genes_or_transcripts}s-corrected-tpms"
+        corrected_tpm="tmp_results/{accession}-{genes_or_transcripts}s-corrected-tpms",
+        corrected_fpkm="tmp_results/{accession}-{genes_or_transcripts}s-corrected-fpkms"
+
+rule copy_genes_data:
+    input:
+        raw_counts_file="data/{accession}-raw-counts.tsv.undecorated"
+    output:
+        labeled_genes_raw_counts="data/{accession}-genes-raw-counts.tsv.undecorated"
+    shell:
+        "cp {input.raw_counts_file} {output.labeled_genes_raw_counts}"
 
 rule quantile_normalize:
     input:
         configuration_file="data/{accession}-configuration.xml",
         raw_counts_file="data/{accession}-{genes_or_transcripts}s-raw-counts.tsv.undecorated"
     output:
-        quantile_result="tmp_results/{accession}-{genes_or_transcripts}-quantile-counts.tsv"
+        quantile_result="tmp_results/{accession}-{genes_or_transcripts}s-quantile-counts.tsv"
     conda:
         "envs/ma_quantile_transform.yaml"
     shell:
@@ -62,7 +71,7 @@ rule irap_raw2metric:
         counts=rules.batch_correction_v2.output.tsv_corrected_counts,
         lengths="data/{accession}.lengths.Rdata"
     output:
-        corrected="tmp_results/{accession}-{genes_or_transcripts}s-corrected-tpms"
+        corrected="tmp_results/{accession}-{genes_or_transcripts}s-corrected-{metric}s"
     conda:
         "envs/ma_irap_components.yaml"
     shell:
@@ -70,6 +79,6 @@ rule irap_raw2metric:
         irap_raw2metric -i {input.counts} \
             --lengths data/{wildcards.accession}.lengths.Rdata \
             --feature {wildcards.genes_or_transcripts} \
-            --metric tpm \
+            --metric {wildcards.metric} \
             --out {output.corrected}
         """
