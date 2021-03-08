@@ -28,7 +28,11 @@ data/reference.gtf
 then run:
 
 ```
-snakemake --cores 2 --use-conda --conda-frontend mamba tmp_results/<ACCESSION>-transcripts-corrected-fpkms tmp_results/<ACCESSION>-transcripts-corrected-tpms tmp_results/<ACCESSION>-genes-corrected-tpms tmp_results/<ACCESSION>-genes-corrected-fpkms
+snakemake --cores 2 --use-conda --conda-frontend mamba \
+tmp_results/<ACCESSION>-transcripts-corrected-fpkms \
+tmp_results/<ACCESSION>-transcripts-corrected-tpms \
+tmp_results/<ACCESSION>-genes-corrected-tpms \
+tmp_results/<ACCESSION>-genes-corrected-fpkms
 ```
 
 This will create results in two directories:
