@@ -1,9 +1,9 @@
+ANNOT_OBJECTS=["gene", "transcript"]
+METRICS=['tpm', 'fpkm']
+
 rule all:
     input:
-        #summarized_rdata="tmp_results/{accession}-{genes_or_transcripts}s-corrected_summarizedExp.rdata",
-        #tsv_corrected_counts="tmp_results/{accession}-{genes_or_transcripts}s-corrected_counts.tsv"
-        corrected_tpm="tmp_results/{accession}-{genes_or_transcripts}s-corrected-tpms",
-        corrected_fpkm="tmp_results/{accession}-{genes_or_transcripts}s-corrected-fpkms"
+        corrected=expand("tmp_results/{accession}-{genes_or_transcripts}s-corrected-{metric}s",accession=config["accession"],genes_or_transcripts=ANNOT_OBJECTS, metric=METRICS)
 
 rule copy_genes_data:
     input:
