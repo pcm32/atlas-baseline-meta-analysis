@@ -13,6 +13,19 @@ rule copy_genes_data:
     shell:
         "cp {input.raw_counts_file} {output.labeled_genes_raw_counts}"
 
+rule lengths:
+    input:
+        gtf="data/reference.gtf"
+    output:
+        rdata="lengths/{accession}.lengths.Rdata"
+    conda:
+        "envs/ma_irap_components.yaml"
+    threads: 2
+    shell:
+        """
+        irap_gtf2featlength --gtf {input.gtf} --out lengths/{wildcards.accession}.lengths --cores {threads}
+        """
+
 rule quantile_normalize:
     input:
         configuration_file="data/{accession}-configuration.xml",
@@ -69,7 +82,7 @@ rule batch_correction_v2:
 rule irap_raw2metric:
     input:
         counts=rules.batch_correction_v2.output.tsv_corrected_counts,
-        lengths="data/{accession}.lengths.Rdata"
+        lengths=rules.lengths.output.rdata
     output:
         corrected="tmp_results/{accession}-{genes_or_transcripts}s-corrected-{metric}s"
     conda:
