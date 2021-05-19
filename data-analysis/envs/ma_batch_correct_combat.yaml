@@ -1,0 +1,5 @@
+channels:
+ - conda-forge
+ - bioconda
+dependencies:
+ - MAGE-Tab-merger =0.4.0
