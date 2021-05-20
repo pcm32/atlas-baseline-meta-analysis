@@ -43,7 +43,8 @@ def get_outputs(new_accession):
 
 
 wildcard_constraints:
-    new_acc="E-\D+-\d+"
+    new_acc="E-\D+-\d+",
+    data_suffix=".*raw-counts.*"
     #new_acc=".*^(?!.condensed)"
 
 rule all:
@@ -56,7 +57,7 @@ rule retrieve_data:
         optionals=optionals_retrieve_data()
     output:
         data=expand(os.environ['CACHE_PATH']+"/data/{accession}/{accession}{suffix}", accession=os.environ["ACCESSIONS"].split(","), suffix=SUFFIXES),
-        data_path=os.environ["CACHE_PATH"]+"/data"
+        data_path=directory(os.environ["CACHE_PATH"]+"/data")
     conda:
         "envs/MAGETab-merger.yaml"
     log: f"logs/{os.environ['NEW_ACCESSION']}.log"
@@ -99,11 +100,11 @@ rule merge_condensed:
     shell:
         """
         mkdir -p tmp_results;
-        merge_condensed_sdrfs.py -d {input.path} \
-          -a {params.accessions} \
-          -o tmp_results -n {wildcards.new_acc} \
-          -b {params.batch} -c {params.covariate} \
-          --covariate-type {params.covariate_type} \
+        merge_condensed_sdrfs.py -d '{input.path}' \
+          -a '{params.accessions}' \
+          -o tmp_results -n '{wildcards.new_acc}' \
+          -b '{params.batch}' -c '{params.covariate}' \
+          --covariate-type '{params.covariate_type}' \
           {params.optionals} 2>> {log}
         """
 
@@ -114,13 +115,19 @@ rule merge_sdrfs:
         path=existing_or_retrieve("path")
     output:
         merged_sdrf="tmp_results/{new_acc}.sdrf.tsv"
-    log: "logs/{new_acc}.log"
+    log: "logs/{new_acc}.merge-SDRFs.log"
     conda:
         "envs/MAGETab-merger.yaml"
     shell:
         """
-        merge_sdrfs.py -d {input.path} --accessions-file {input.accessions_file} \
-            -o {output.merged_sdrf} 2>> {log}
+        rm -rf tmp_sdrfs
+        mkdir -p tmp_sdrfs
+        for acc in $(cat {input.accessions_file} | tr ',' ' '); do
+          ln -s {input.path}/$acc/$acc'.sdrf.txt' tmp_sdrfs/$acc'.sdrf.txt'
+        done
+        merge_sdrfs.py -d tmp_sdrfs --accessions-file {input.accessions_file} \
+            -o {output.merged_sdrf} 2> {log}
+        rm -rf tmp_sdrfs
         """
 
 rule merge_baseline_configuration_xmls:
@@ -135,14 +142,15 @@ rule merge_baseline_configuration_xmls:
         "envs/MAGETab-merger.yaml"
     shell:
         """
+        rm -rf tmp_configs
         mkdir -p tmp_configs
-        for acc in $(cat {input.accessions_file}); do
-          ln -s {params.input_path}/\$acc/\$acc'-configuration.xml' tmp_configs/\$acc'-configuration.xml'
+        for acc in $(cat {input.accessions_file} | tr ',' ' '); do
+          ln -s {params.input_path}/$acc/$acc'-configuration.xml' tmp_configs/$acc'-configuration.xml'
         done
         merge_baseline_configuration_xmls.py \
             --accessions-file {input.accessions_file} \
-            -o tmp_results/{wildcards.new_acc} \
-            -n {wildcards.new_acc} -x tmp_configs 2>> {log}
+            -o tmp_results \
+            -n {wildcards.new_acc} -x tmp_configs 2> {log}
         rm -rf tmp_configs
         """
 
@@ -150,20 +158,23 @@ rule merge_data:
     input:
         accessions_file=rules.merge_condensed.output.selected_studies,
         merged_condensed=rules.merge_condensed.output.merged_condensed
+        #merge_condensed="tmp_results/{new_acc}.condensed.sdrf.tsv"
     params:
-        data_suffix=DATA_SUFFIXES,
+        #data_suffix=DATA_SUFFIXES,
         input_path=rules.retrieve_data.output.data_path
-    log: "logs/{new_acc}.log"
+    log: "logs/{new_acc}.{data_suffix}.merge-data.log"
     conda:
         "envs/MAGETab-merger.yaml"
     output:
-        merged_data=expand("tmp_results/{{new_acc}}{data_suffix}", data_suffix=DATA_SUFFIXES)
+        #merged_data=expand("tmp_results/{{new_acc}}{ds}", ds=DATA_SUFFIXES)
+        merged_data="tmp_results/{new_acc}{data_suffix}"
     shell:
         """
-        mkdir -p tmp_data
-        for acc in $(cat {input.accessions_file}); do
-            ln -s {params.input_path}/\$acc/\$acc{params.data_suffix} tmp_data/$acc{params.data_suffix}
+        rm -rf tmp_data{wildcards.data_suffix}
+        mkdir -p tmp_data{wildcards.data_suffix}
+        for acc in $(cat {input.accessions_file} | tr ',' ' '); do
+            ln -s {params.input_path}/$acc/$acc{wildcards.data_suffix} tmp_data{wildcards.data_suffix}/$acc{wildcards.data_suffix}
         done
-        merge_data.py -d tmp_data -s {params.data_suffix} -o {output.merged_data} -c {input.merged_condensed} -i "Gene ID" --remove-rows-with-empty 2>> {log}
-        rm -rf tmp_data
+        merge_data.py -d tmp_data{wildcards.data_suffix} -s='{wildcards.data_suffix}' -o {output.merged_data} -c {input.merged_condensed} -i "Gene ID" --remove-rows-with-empty true 2> {log}
+        rm -rf tmp_data{wildcards.data_suffix}
         """
