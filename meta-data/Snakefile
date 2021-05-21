@@ -40,11 +40,11 @@ def optionals_retrieve_data():
     return optionals
 
 def get_outputs(new_accession):
-    outputs = [f"tmp_results/{new_accession}.sdrf.tsv",
     """
     Produces all outputs required, adding the data outputs if needed
     when SEND_TO_ANALYSIS is set.
     """
+    outputs = [f"tmp_results/{new_accession}.sdrf.txt",
         f"tmp_results/{new_accession}.condensed.sdrf.tsv",
         f"tmp_results/{new_accession}-configuration.xml"
         ]
@@ -138,7 +138,7 @@ rule merge_sdrfs:
         #path=rules.retrieve_data.output.data_path
         path=existing_or_retrieve("path")
     output:
-        merged_sdrf="tmp_results/{new_acc}.sdrf.tsv"
+        merged_sdrf="tmp_results/{new_acc}.sdrf.txt"
     log: "logs/{new_acc}.merge-SDRFs.log"
     conda:
         "envs/MAGETab-merger.yaml"
