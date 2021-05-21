@@ -14,6 +14,10 @@ if "SEND_TO_ANALYSIS" in os.environ:
     SUFFIXES.extend(DATA_SUFFIXES)
 
 def optionals_merge():
+    """
+    Produces optionals for the condensed SDRF merge call based
+    COVARIATE_SKIP_VALUES environment variable.
+    """
     optionals=""
     if "COVARIATE_SKIP_VALUES" in os.environ:
         optionals=f" --covariate-skip-values '{os.environ['COVARIATE_SKIP_VALUES']}'"
@@ -22,6 +26,10 @@ def optionals_merge():
 
 
 def optionals_retrieve_data():
+    """
+    Produces optionals for the retrieve data call, based on the REPLACE_DOWNLOADS
+    and SEND_TO_ANALYSIS environment variables.
+    """
     optionals=""
     if "REPLACE_DOWNLOADS" in os.environ:
         optionals=" -r"
@@ -33,6 +41,10 @@ def optionals_retrieve_data():
 
 def get_outputs(new_accession):
     outputs = [f"tmp_results/{new_accession}.sdrf.tsv",
+    """
+    Produces all outputs required, adding the data outputs if needed
+    when SEND_TO_ANALYSIS is set.
+    """
         f"tmp_results/{new_accession}.condensed.sdrf.tsv",
         f"tmp_results/{new_accession}-configuration.xml"
         ]
@@ -42,6 +54,10 @@ def get_outputs(new_accession):
     return outputs
 
 def get_index_column(suffix):
+    """
+    Index column for merge data, returns transcript id or gene id based
+    on whether the suffix contains transcript or not.
+    """
     if "transcript" in suffix:
         return "Transcript ID"
     return "Gene ID"
@@ -50,7 +66,6 @@ def get_index_column(suffix):
 wildcard_constraints:
     new_acc="E-\D+-\d+",
     data_suffix=".*raw-counts.*"
-    #new_acc=".*^(?!.condensed)"
 
 rule all:
     input:
@@ -73,6 +88,10 @@ rule retrieve_data:
         """
 
 def existing_or_retrieve(type):
+    """
+    If environment variable INPUT_PATH is set, then no data retrieval takes
+    place as the operator has sourced all needed files.
+    """
     if "INPUT_PATH" not in os.environ:
         if type == "path":
             return rules.retrieve_data.output.data_path
