@@ -41,6 +41,11 @@ def get_outputs(new_accession):
 
     return outputs
 
+def get_index_column(suffix):
+    if "transcript" in suffix:
+        return "Transcript ID"
+    return "Gene ID"
+
 
 wildcard_constraints:
     new_acc="E-\D+-\d+",
@@ -158,15 +163,13 @@ rule merge_data:
     input:
         accessions_file=rules.merge_condensed.output.selected_studies,
         merged_condensed=rules.merge_condensed.output.merged_condensed
-        #merge_condensed="tmp_results/{new_acc}.condensed.sdrf.tsv"
-    params:
-        #data_suffix=DATA_SUFFIXES,
-        input_path=rules.retrieve_data.output.data_path
     log: "logs/{new_acc}.{data_suffix}.merge-data.log"
+    params:
+        input_path=rules.retrieve_data.output.data_path,
+        index_column=lambda wildcards: get_index_column(f"{wildcards.data_suffix}")
     conda:
         "envs/MAGETab-merger.yaml"
     output:
-        #merged_data=expand("tmp_results/{{new_acc}}{ds}", ds=DATA_SUFFIXES)
         merged_data="tmp_results/{new_acc}{data_suffix}"
     shell:
         """
@@ -175,6 +178,6 @@ rule merge_data:
         for acc in $(cat {input.accessions_file} | tr ',' ' '); do
             ln -s {params.input_path}/$acc/$acc{wildcards.data_suffix} tmp_data{wildcards.data_suffix}/$acc{wildcards.data_suffix}
         done
-        merge_data.py -d tmp_data{wildcards.data_suffix} -s='{wildcards.data_suffix}' -o {output.merged_data} -c {input.merged_condensed} -i "Gene ID" --remove-rows-with-empty true 2> {log}
+        merge_data.py -d tmp_data{wildcards.data_suffix} -s='{wildcards.data_suffix}' -o {output.merged_data} -c {input.merged_condensed} -i '{params.index_column}' --remove-rows-with-empty true 2> {log}
         rm -rf tmp_data{wildcards.data_suffix}
         """
