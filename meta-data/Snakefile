@@ -1,0 +1,221 @@
+envvars:
+    "ACCESSIONS",
+    "NEW_ACCESSION",
+    "CACHE_PATH",
+    "BATCH",
+    "COVARIATE",
+    "COVARIATE_TYPE",
+    "SPECIES"
+
+
+SUFFIXES=['-configuration.xml', '.idf.txt', '.condensed-sdrf.tsv', '.sdrf.txt']
+DATA_SUFFIXES=['-transcripts-raw-counts.tsv.undecorated', '-raw-counts.tsv.undecorated']
+
+if "SEND_TO_ANALYSIS" in os.environ:
+    SUFFIXES.extend(DATA_SUFFIXES)
+
+def optionals_merge():
+    """
+    Produces optionals for the condensed SDRF merge call based
+    COVARIATE_SKIP_VALUES environment variable.
+    """
+    optionals=""
+    if "COVARIATE_SKIP_VALUES" in os.environ:
+        optionals=f" --covariate-skip-values '{os.environ['COVARIATE_SKIP_VALUES']}'"
+
+    return optionals
+
+
+def optionals_retrieve_data():
+    """
+    Produces optionals for the retrieve data call, based on the REPLACE_DOWNLOADS
+    and SEND_TO_ANALYSIS environment variables.
+    """
+    optionals=""
+    if "REPLACE_DOWNLOADS" in os.environ:
+        optionals=" -r"
+
+    if "SEND_TO_ANALYSIS" in os.environ:
+        optionals=" -d"
+
+    return optionals
+
+def get_outputs(new_accession):
+    """
+    Produces all outputs required, adding the data outputs if needed
+    when SEND_TO_ANALYSIS is set.
+    """
+    outputs = [f"tmp_results/{new_accession}.sdrf.txt",
+        f"tmp_results/{new_accession}.condensed.sdrf.tsv",
+        f"tmp_results/{new_accession}-configuration.xml"
+        ]
+    if "SEND_TO_ANALYSIS" in os.environ:
+        outputs.extend([f"tmp_results/{new_accession}{x}" for x in DATA_SUFFIXES])
+
+    if "SPECIES" in os.environ:
+        outputs.extend([f"tmp_results/{new_accession}.gtf])
+
+    return outputs
+
+def get_index_column(suffix):
+    """
+    Index column for merge data, returns transcript id or gene id based
+    on whether the suffix contains transcript or not.
+    """
+    if "transcript" in suffix:
+        return "Transcript ID"
+    return "Gene ID"
+
+
+wildcard_constraints:
+    new_acc="E-\D+-\d+",
+    data_suffix=".*raw-counts.*"
+
+rule all:
+    input:
+        required_outputs=get_outputs(os.environ["NEW_ACCESSION"])
+
+rule retrieve_data:
+    params:
+        accessions=os.environ["ACCESSIONS"],
+        optionals=optionals_retrieve_data()
+    output:
+        data=expand(os.environ['CACHE_PATH']+"/data/{accession}/{accession}{suffix}", accession=os.environ["ACCESSIONS"].split(","), suffix=SUFFIXES),
+        data_path=directory(os.environ["CACHE_PATH"]+"/data")
+    conda:
+        "envs/MAGETab-merger.yaml"
+    log: f"logs/{os.environ['NEW_ACCESSION']}.log"
+    shell:
+        """
+        mkdir -p {output.data_path}
+        retrieve_data.py -i {output.data_path} -a {params.accessions} -f {params.optionals} 2> {log}
+        """
+
+def existing_or_retrieve(type):
+    """
+    If environment variable INPUT_PATH is set, then no data retrieval takes
+    place as the operator has sourced all needed files.
+    """
+    if "INPUT_PATH" not in os.environ:
+        if type == "path":
+            return rules.retrieve_data.output.data_path
+        else:
+            return rules.retrieve_data.output.data
+    else:
+        if type == "path":
+            return os.environ["INPUT_PATH"]
+        else:
+            return []
+
+rule merge_condensed:
+    params:
+        accessions=os.environ["ACCESSIONS"],
+        batch=os.environ["BATCH"],
+        covariate=os.environ["COVARIATE"],
+        covariate_type=os.environ["COVARIATE_TYPE"],
+        optionals=optionals_merge()
+    input:
+        path=existing_or_retrieve("path"),
+        #path=rules.retrieve_data.output.data_path,
+        data=existing_or_retrieve("data")
+        #data=rules.retrieve_data.output.data
+    output:
+        merged_condensed="tmp_results/{new_acc}.condensed.sdrf.tsv",
+        selected_studies="tmp_results/{new_acc}.selected_studies.txt"
+    log: "logs/{new_acc}.log"
+    conda:
+        "envs/MAGETab-merger.yaml"
+    shell:
+        """
+        mkdir -p tmp_results;
+        merge_condensed_sdrfs.py -d '{input.path}' \
+          -a '{params.accessions}' \
+          -o tmp_results -n '{wildcards.new_acc}' \
+          -b '{params.batch}' -c '{params.covariate}' \
+          --covariate-type '{params.covariate_type}' \
+          {params.optionals} 2>> {log}
+        """
+
+rule merge_sdrfs:
+    input:
+        accessions_file=rules.merge_condensed.output.selected_studies,
+        #path=rules.retrieve_data.output.data_path
+        path=existing_or_retrieve("path")
+    output:
+        merged_sdrf="tmp_results/{new_acc}.sdrf.txt"
+    log: "logs/{new_acc}.merge-SDRFs.log"
+    conda:
+        "envs/MAGETab-merger.yaml"
+    shell:
+        """
+        rm -rf tmp_sdrfs
+        mkdir -p tmp_sdrfs
+        for acc in $(cat {input.accessions_file} | tr ',' ' '); do
+          ln -s {input.path}/$acc/$acc'.sdrf.txt' tmp_sdrfs/$acc'.sdrf.txt'
+        done
+        merge_sdrfs.py -d tmp_sdrfs --accessions-file {input.accessions_file} \
+            -o {output.merged_sdrf} 2> {log}
+        rm -rf tmp_sdrfs
+        """
+
+rule merge_baseline_configuration_xmls:
+    input:
+        accessions_file=rules.merge_condensed.output.selected_studies
+    params:
+        input_path=rules.retrieve_data.output.data_path
+    output:
+        merged_xml="tmp_results/{new_acc}-configuration.xml"
+    log: "logs/{new_acc}.log"
+    conda:
+        "envs/MAGETab-merger.yaml"
+    shell:
+        """
+        rm -rf tmp_configs
+        mkdir -p tmp_configs
+        for acc in $(cat {input.accessions_file} | tr ',' ' '); do
+          ln -s {params.input_path}/$acc/$acc'-configuration.xml' tmp_configs/$acc'-configuration.xml'
+        done
+        merge_baseline_configuration_xmls.py \
+            --accessions-file {input.accessions_file} \
+            -o tmp_results \
+            -n {wildcards.new_acc} -x tmp_configs 2> {log}
+        rm -rf tmp_configs
+        """
+
+rule_retrieve_gtf:
+    output:
+        gtf: "tmp_results/{new_acc}.gtf"
+    params:
+        species: os.environ["SPECIES"]
+        tag: "current"
+    conda:
+        "envs/refgenie.yaml"
+    shell:
+        """
+        genome=$(refgenie list --skip-read-lock | grep {params.species} | awk -F' ' '{ print $2 }')
+        gtf_path=$(refgenie seek --skip-read-lock $genome/ensembl_gtf:{params.tag})
+        ln -s $gtf_path {output.gtf}
+        """
+
+rule merge_data:
+    input:
+        accessions_file=rules.merge_condensed.output.selected_studies,
+        merged_condensed=rules.merge_condensed.output.merged_condensed
+    log: "logs/{new_acc}.{data_suffix}.merge-data.log"
+    params:
+        input_path=rules.retrieve_data.output.data_path,
+        index_column=lambda wildcards: get_index_column(f"{wildcards.data_suffix}")
+    conda:
+        "envs/MAGETab-merger.yaml"
+    output:
+        merged_data="tmp_results/{new_acc}{data_suffix}"
+    shell:
+        """
+        rm -rf tmp_data{wildcards.data_suffix}
+        mkdir -p tmp_data{wildcards.data_suffix}
+        for acc in $(cat {input.accessions_file} | tr ',' ' '); do
+            ln -s {params.input_path}/$acc/$acc{wildcards.data_suffix} tmp_data{wildcards.data_suffix}/$acc{wildcards.data_suffix}
+        done
+        merge_data.py -d tmp_data{wildcards.data_suffix} -s='{wildcards.data_suffix}' -o {output.merged_data} -c {input.merged_condensed} -i '{params.index_column}' --remove-rows-with-empty true 2> {log}
+        rm -rf tmp_data{wildcards.data_suffix}
+        """
