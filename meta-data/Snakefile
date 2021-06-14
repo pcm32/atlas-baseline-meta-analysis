@@ -4,7 +4,8 @@ envvars:
     "CACHE_PATH",
     "BATCH",
     "COVARIATE",
-    "COVARIATE_TYPE"
+    "COVARIATE_TYPE",
+    "SPECIES"
 
 
 SUFFIXES=['-configuration.xml', '.idf.txt', '.condensed-sdrf.tsv', '.sdrf.txt']
@@ -50,6 +51,9 @@ def get_outputs(new_accession):
         ]
     if "SEND_TO_ANALYSIS" in os.environ:
         outputs.extend([f"tmp_results/{new_accession}{x}" for x in DATA_SUFFIXES])
+
+    if "SPECIES" in os.environ:
+        outputs.extend([f"tmp_results/{new_accession}.gtf])
 
     return outputs
 
@@ -176,6 +180,21 @@ rule merge_baseline_configuration_xmls:
             -o tmp_results \
             -n {wildcards.new_acc} -x tmp_configs 2> {log}
         rm -rf tmp_configs
+        """
+
+rule_retrieve_gtf:
+    output:
+        gtf: "tmp_results/{new_acc}.gtf"
+    params:
+        species: os.environ["SPECIES"]
+        tag: "current"
+    conda:
+        "envs/refgenie.yaml"
+    shell:
+        """
+        genome=$(refgenie list --skip-read-lock | grep {params.species} | awk -F' ' '{ print $2 }')
+        gtf_path=$(refgenie seek --skip-read-lock $genome/ensembl_gtf:{params.tag})
+        ln -s $gtf_path {output.gtf}
         """
 
 rule merge_data:
